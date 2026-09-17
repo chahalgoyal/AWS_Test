@@ -43,4 +43,4 @@ class LoginPage(BasePage):
         """Assert that we have reached the AWS Management Console."""
         expect(
             self.page.locator(self.CONSOLE_HOME_INDICATOR)
-        ).to_be_visible(timeout=30_000)
+        ).to_be_visible(timeout=15_000)
