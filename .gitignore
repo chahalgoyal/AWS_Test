@@ -3,6 +3,12 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+#allure results
+allure-results/
+
+# user - data
+user-for-test_credentials.csv
+
 # C extensions
 *.so
 

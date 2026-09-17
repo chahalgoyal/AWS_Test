@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Provisions an SNS Topic, an SQS Queue, and a Subscription with a Filter Policy.'
+
+Parameters:
+  TopicName:
+    Type: String
+    Default: TestSNSTopic
+    Description: Name for the SNS Topic
+  QueueName:
+    Type: String
+    Default: TestSQSQueue
+    Description: Name for the SQS Queue
+
+Resources:
+  MySQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+
+  MySNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref TopicName
+
+  SQSQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref MySQSQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt MySQSQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref MySNSTopic
+
+  MySNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      Endpoint: !GetAtt MySQSQueue.Arn
+      TopicArn: !Ref MySNSTopic
+      FilterPolicy:
+        message_type:
+          - test_alert
+
+Outputs:
+  TopicArn:
+    Description: ARN of the SNS Topic
+    Value: !Ref MySNSTopic
+  QueueUrl:
+    Description: URL of the SQS Queue
+    Value: !Ref MySQSQueue
+  QueueArn:
+    Description: ARN of the SQS Queue
+    Value: !GetAtt MySQSQueue.Arn
