@@ -15,7 +15,7 @@ Here is a quick overview of what is inside the repository:
 - **`pytest.ini`**: Pytest configuration file.
 - **`requirements.txt`**: List of Python dependencies required to run the project.
 - **`*.yaml` templates** (`template.yaml`, `sns_sqs_template.yaml`): AWS CloudFormation templates used during the tests to spin up infrastructure.
-- **`user-for-test_credentials.csv`**: A CSV file intended to store the AWS login credentials used by the automation script to log in.
+- **`.env`**: Environment file containing the AWS login credentials and sign-in URL used by the automation script.
 
 ## Prerequisites
 
@@ -36,8 +36,13 @@ Ensure you have Python (3.7+) installed on your machine.
    ```
 
 3. **Configure AWS Credentials**
-   Ensure your `user-for-test_credentials.csv` file has the correct AWS login credentials for the IAM user that the test will use to log into the AWS Management Console. 
-   *(Note: Ensure this file is added to your `.gitignore` so you do not accidentally push sensitive credentials to GitHub!)*
+   Create a `.env` file in the root directory and add the following variables:
+   ```env
+   AWS_SIGN_IN_URL=https://<your-account-alias-or-id>.signin.aws.amazon.com/console
+   AWS_USERNAME=your-iam-username
+   AWS_PASSWORD=your-iam-password
+   ```
+   *(Note: Ensure this `.env` file is added to your `.gitignore` so you do not accidentally push sensitive credentials to GitHub!)*
 
 ## Running the Tests
 

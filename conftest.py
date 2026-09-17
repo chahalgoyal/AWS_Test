@@ -14,7 +14,7 @@ import csv
 import pytest
 from playwright.sync_api import sync_playwright, Playwright, Browser, BrowserContext, Page
 
-from config import CREDENTIALS, TEMPLATE_FILE, REGION, STACK_NAME
+from config import USERNAME, PASSWORD, SIGN_IN_URL, TEMPLATE_FILE, REGION, STACK_NAME
 from pages.login_page import LoginPage
 from pages.cfn_page import CloudFormationPage
 from pages.ec2_page import EC2Page
@@ -22,23 +22,6 @@ from pages.s3_page import S3Page
 from pages.lambda_page import LambdaPage
 
 
-# ---------------------------------------------------------------------------
-# Credentials
-# ---------------------------------------------------------------------------
-@pytest.fixture(scope="session")
-def credentials() -> dict:
-    """
-    Load IAM credentials from the AWS-exported CSV.
-    The file has a UTF-8 BOM; 'utf-8-sig' strips it automatically.
-    """
-    with open(CREDENTIALS, newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        row = next(reader)
-    return {
-        "username":    row["User name"].strip(),
-        "password":    row["Password"].strip(),
-        "sign_in_url": row["Console sign-in URL"].strip(),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -88,11 +71,11 @@ def aws_page(aws_context: BrowserContext) -> Page:
 # Page-object fixtures  (session-scoped, all share aws_page)
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session")
-def login_page(aws_page: Page, credentials: dict) -> LoginPage:
-    return LoginPage(aws_page, sign_in_url=credentials["sign_in_url"])
+def login_page(aws_page: Page) -> LoginPage:
+    return LoginPage(aws_page, sign_in_url=SIGN_IN_URL)
 
 @pytest.fixture(scope="session", autouse=True)
-def authenticate_session(login_page: LoginPage, credentials: dict) -> None:
+def authenticate_session(login_page: LoginPage) -> None:
     """
     Automatically log in to the AWS console once per session.
     All subsequent tests will share this authenticated state.
@@ -106,8 +89,8 @@ def authenticate_session(login_page: LoginPage, credentials: dict) -> None:
         pass
         
     login_page.login(
-        username=credentials["username"],
-        password=credentials["password"],
+        username=USERNAME,
+        password=PASSWORD,
     )
     login_page.assert_logged_in()
 
