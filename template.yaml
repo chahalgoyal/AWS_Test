@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Provisions an EC2 instance via Launch Template, a namespaced S3 bucket, and a Lambda function with a public URL.
+
+Parameters:
+  EC2Name:
+    Type: String
+    Default: ec2_test
+    Description: Name tag for the EC2 instance
+
+  UseSpotInstance:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Toggle to use a Spot Instance instead of On-Demand
+
+  SpotMaxPrice:
+    Type: String
+    Default: '0.05'
+    Description: Maximum hourly price for the spot instance (if UseSpotInstance is true)
+
+  S3Name:
+    Type: String
+    Default: s3-test
+    Description: Base name for the S3 bucket.
+
+  LambdaName:
+    Type: String
+    Default: lambda_test
+    Description: Name for the Lambda function
+
+Conditions:
+  IsSpotInstance: !Equals [!Ref UseSpotInstance, 'true']
+
+Resources:
+  # 1. EC2 Launch Template (Handles Spot logic)
+  MyLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: t3.micro
+        ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+        InstanceMarketOptions:
+          !If
+            - IsSpotInstance
+            - MarketType: spot
+              SpotOptions:
+                MaxPrice: !Ref SpotMaxPrice
+            - !Ref AWS::NoValue
+
+  # 2. EC2 Instance (References the Launch Template)
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref MyLaunchTemplate
+        Version: !GetAtt MyLaunchTemplate.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: !Ref EC2Name
+
+  # 3. S3 Bucket
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${S3Name}-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # 4. IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # 5. Lambda Function
+  HelloLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaName
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.14
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              print("hi or hello")
+              return {
+                  "statusCode": 200,
+                  "headers": {
+                      "Content-Type": "text/plain"
+                  },
+                  "body": "hi or hello from lambda"
+              }
+
+  # 6. Lambda Function URL
+  HelloLambdaFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      AuthType: NONE
+      TargetFunctionArn: !Ref HelloLambdaFunction
+
+  # 7. Lambda Public Invocation Permission
+  LambdaUrlInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunctionUrl
+      FunctionName: !Ref HelloLambdaFunction
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HelloLambdaFunction
+      Principal: "*"
+
+Outputs:
+  PublicLambdaUrl:
+    Value: !GetAtt HelloLambdaFunctionUrl.FunctionUrl
+  S3BucketName:
+    Value: !Ref MyS3Bucket
+  EC2InstanceId:
+    Value: !Ref MyEC2Instance
